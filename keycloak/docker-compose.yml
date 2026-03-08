@@ -1,0 +1,63 @@
+services:
+
+  keycloak-db:
+    image: mariadb:latest
+    container_name: keycloak-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${KC_DB_DATABASE}
+      MARIADB_USER: ${KC_DB_USER}
+      MARIADB_PASSWORD: ${KC_DB_PASSWORD}
+    volumes:
+      - keycloak-db-data:/var/lib/mysql
+    networks:
+      - keycloak-internal
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    restart: unless-stopped
+    command: start
+    environment:
+      KC_DB: mariadb
+      KC_DB_URL: jdbc:mariadb://keycloak-db:3306/${KC_DB_DATABASE}
+      KC_DB_USERNAME: ${KC_DB_USER}
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HOSTNAME: ${KC_HOSTNAME}
+      KC_HOSTNAME_STRICT: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HTTPS_ENABLED: "false"
+      KC_PROXY_HEADERS: xforwarded
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    networks:
+      - keycloak-internal
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`${KC_HOSTNAME}`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls=true"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+
+volumes:
+  keycloak-db-data:
+    name: keycloak-db-data
+
+networks:
+  keycloak-internal:
+    name: keycloak-internal
+    internal: true
+  traefik-public:
+    external: true
+    name: traefik-public

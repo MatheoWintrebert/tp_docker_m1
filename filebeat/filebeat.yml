@@ -1,0 +1,29 @@
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true
+      hints.default_config:
+        type: container
+        paths:
+          - /var/lib/docker/containers/${data.container.id}/*.log
+
+processors:
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+  - add_host_metadata: ~
+  - add_cloud_metadata: ~
+  - decode_json_fields:
+      fields: ["message"]
+      target: ""
+      overwrite_keys: true
+      when:
+        regexp:
+          message: '^\{'
+
+output.logstash:
+  hosts: ["192.168.122.102:5044"]
+
+logging.level: info
+logging.to_files: false
+
+filebeat.registry.path: /usr/share/filebeat/data/registry

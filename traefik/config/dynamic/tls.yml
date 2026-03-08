@@ -1,0 +1,9 @@
+tls:
+  certificates:
+    - certFile: /etc/pki/tls/private/cert.pem
+      keyFile: /etc/pki/tls/private/key.pem
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/pki/tls/private/cert.pem
+        keyFile: /etc/pki/tls/private/key.pem

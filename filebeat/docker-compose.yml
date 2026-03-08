@@ -1,0 +1,29 @@
+services:
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.17.3
+    container_name: filebeat
+    restart: unless-stopped
+    user: root
+    command: filebeat -e --strict.perms=false
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - filebeat-data:/usr/share/filebeat/data
+      - filebeat-logs:/var/log/filebeat
+    networks:
+      - traefik-public
+
+volumes:
+  filebeat-data:
+    name: filebeat-data
+  filebeat-logs:
+    name: filebeat-logs
+
+networks:
+  traefik-public:
+    external: true
+    name: traefik-public

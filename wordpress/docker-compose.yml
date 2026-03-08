@@ -1,0 +1,86 @@
+services:
+
+  wordpress-db:
+    image: mariadb:latest
+    container_name: wordpress-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${WORDPRESS_DB_NAME}
+      MARIADB_USER: ${WORDPRESS_DB_USER}
+      MARIADB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+    volumes:
+      - wordpress-db-data:/var/lib/mysql
+    networks:
+      - wordpress-internal
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress
+    restart: unless-stopped
+    environment:
+      WORDPRESS_DB_HOST: wordpress-db:3306
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_HOME', 'https://${WP_HOSTNAME}');
+        define('WP_SITEURL', 'https://${WP_HOSTNAME}');
+        if (isset($$_SERVER['HTTP_X_FORWARDED_PROTO']) && $$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+            $$_SERVER['HTTPS'] = 'on';
+        }
+    depends_on:
+      wordpress-db:
+        condition: service_healthy
+    volumes:
+      - wordpress-data:/var/www/html
+    networks:
+      - wordpress-internal
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wordpress.rule=Host(`${WP_HOSTNAME}`)"
+      - "traefik.http.routers.wordpress.entrypoints=websecure"
+      - "traefik.http.routers.wordpress.tls=true"
+      - "traefik.http.services.wordpress.loadbalancer.server.port=80"
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: wordpress-db
+      PMA_PORT: 3306
+      PMA_ABSOLUTE_URI: https://${PMA_HOSTNAME}/
+      PMA_ARBITRARY: 0
+    depends_on:
+      - wordpress-db
+    networks:
+      - wordpress-internal
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`${PMA_HOSTNAME}`)"
+      - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
+      - "traefik.http.routers.phpmyadmin.tls=true"
+      - "traefik.http.services.phpmyadmin.loadbalancer.server.port=80"
+
+volumes:
+  wordpress-db-data:
+    name: wordpress-db-data
+  wordpress-data:
+    name: wordpress-data
+
+networks:
+  wordpress-internal:
+    name: wordpress-internal
+    internal: true
+  traefik-public:
+    external: true
+    name: traefik-public
