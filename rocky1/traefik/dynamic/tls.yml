@@ -1,0 +1,9 @@
+tls:
+  certificates:
+    - certFile: /certs/rocky2.crt
+      keyFile:  /certs/rocky2.key
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/rocky2.crt
+        keyFile:  /certs/rocky2.key
